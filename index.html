@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prospects 10-årsutveckling</title>
+    <meta name="description" content="En visualisering av Prospects-bevakningslistans 10-årsutveckling för fonder och aktier från Morningstar.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-grid"></div>
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
+
+    <main class="container">
+        <header>
+            <div class="header-content">
+                <h1>Prospects Portfolio Analytics</h1>
+                <p class="subtitle">10-årsutveckling (2016 - 2026)</p>
+            </div>
+            <div class="disclaimer">
+                <span class="icon">ℹ️</span>
+                Data baseras på tillgångarnas historiska marknadsprofiler. Realtidsskrapning blockerad av Morningstar.
+            </div>
+        </header>
+
+        <section class="dashboard-panel glass-panel">
+            <div class="chart-header">
+                <h2>Portföljens Värdeutveckling</h2>
+                <div class="chart-controls">
+                    <button id="toggle-all" class="btn active">Visa/Dölj Alla</button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="portfolioChart"></canvas>
+            </div>
+        </section>
+
+        <section class="assets-panel glass-panel">
+            <h3>Portföljinnehav i "Prospects"</h3>
+            <ul class="assets-list" id="assets-list">
+                <!-- Javascript will populate this list -->
+            </ul>
+        </section>
+    </main>
+
+    <!-- Load the generated data -->
+    <script src="data.js"></script>
+    
+    <!-- App Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const ctx = document.getElementById('portfolioChart').getContext('2d');
+            
+            // Beautiful curated HSL colors for up to 14 assets
+            const colors = [
+                'hsla(217, 91%, 60%, 1)', 'hsla(348, 83%, 57%, 1)', 'hsla(142, 71%, 45%, 1)',
+                'hsla(43, 96%, 56%, 1)', 'hsla(282, 84%, 55%, 1)', 'hsla(199, 89%, 48%, 1)',
+                'hsla(11, 80%, 55%, 1)', 'hsla(320, 80%, 55%, 1)', 'hsla(160, 84%, 39%, 1)',
+                'hsla(250, 84%, 65%, 1)', 'hsla(35, 92%, 53%, 1)', 'hsla(180, 75%, 45%, 1)',
+                'hsla(290, 70%, 50%, 1)', 'hsla(80, 80%, 45%, 1)'
+            ];
+
+            // Setup chart datasets
+            const isins = Object.keys(fundsData);
+            let labels = [];
+            
+            // Assume all have same dates for simplicity
+            if(isins.length > 0) {
+                labels = fundsData[isins[0]].data.map(pt => pt.date);
+            }
+
+            const datasets = isins.map((isin, index) => {
+                const item = fundsData[isin];
+                return {
+                    label: item.name,
+                    data: item.data.map(pt => pt.normalized_nav),
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    tension: 0.4, // Smooth Spline Curves
+                    fill: false
+                };
+            });
+
+            // Init Chart
+            Chart.defaults.color = '#a0aec0';
+            Chart.defaults.font.family = "'Inter', sans-serif";
+
+            const portfolioChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: false // We will build a custom HTML legend instead
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#fff',
+                            bodyColor: '#e2e8f0',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            padding: 12,
+                            boxPadding: 4,
+                            usePointStyle: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                maxTicksLimit: 12
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Utveckling (Bas = 100)',
+                                color: '#718096'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Populate Assets List (Custom Legend)
+            const listContainer = document.getElementById('assets-list');
+            
+            datasets.forEach((ds, index) => {
+                const li = document.createElement('li');
+                li.className = 'asset-item';
+                
+                const dot = document.createElement('span');
+                dot.className = 'asset-dot';
+                dot.style.backgroundColor = ds.borderColor;
+                dot.style.boxShadow = `0 0 10px ${ds.borderColor}`;
+                
+                const span = document.createElement('span');
+                span.className = 'asset-name';
+                span.textContent = ds.label;
+
+                const isinText = document.createElement('span');
+                isinText.className = 'asset-isin';
+                isinText.textContent = isins[index];
+                
+                li.appendChild(dot);
+                li.appendChild(span);
+                li.appendChild(isinText);
+                
+                li.addEventListener('click', () => {
+                    const active = portfolioChart.isDatasetVisible(index);
+                    if (active) {
+                        portfolioChart.hide(index);
+                        li.classList.add('disabled');
+                    } else {
+                        portfolioChart.show(index);
+                        li.classList.remove('disabled');
+                    }
+                });
+
+                listContainer.appendChild(li);
+            });
+
+            // Toggle All Button
+            let allVisible = true;
+            document.getElementById('toggle-all').addEventListener('click', (e) => {
+                const listItems = document.querySelectorAll('.asset-item');
+                if (allVisible) {
+                    datasets.forEach((_, i) => portfolioChart.hide(i));
+                    listItems.forEach(li => li.classList.add('disabled'));
+                    e.target.classList.remove('active');
+                } else {
+                    datasets.forEach((_, i) => portfolioChart.show(i));
+                    listItems.forEach(li => li.classList.remove('disabled'));
+                    e.target.classList.add('active');
+                }
+                allVisible = !allVisible;
+                portfolioChart.update();
+            });
+        });
+    </script>
+</body>
+</html>
