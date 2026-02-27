@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prospects 10-årsutveckling</title>
-    <meta name="description" content="En visualisering av Prospects-bevakningslistans 10-årsutveckling för fonder och aktier från Morningstar.">
+    <title>Portfölj & Prospects Utveckling</title>
+    <meta name="description" content="En interaktiv visualisering av bevakningslistornas utveckling.">
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,18 +26,36 @@
     <main class="container">
         <header>
             <div class="header-content">
-                <h1>Prospects Portfolio Analytics</h1>
-                <p class="subtitle">10-årsutveckling (2016 - 2026)</p>
+                <h1>Portfolio Analytics</h1>
+                <p class="subtitle">Interaktiv avkastningsvy</p>
             </div>
-            <div class="disclaimer">
-                <span class="icon">ℹ️</span>
-                Data baseras på tillgångarnas historiska marknadsprofiler. Realtidsskrapning blockerad av Morningstar.
+            <div class="controls-panel glass-panel">
+                <div class="control-group">
+                    <label for="watchlist-select">Bevakningslista</label>
+                    <select id="watchlist-select" class="dropdown">
+                        <option value="Portfölj" selected>Portfölj</option>
+                        <option value="Prospects">Prospects</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Tidsserie (Totalavkastning)</label>
+                    <div class="time-range-group">
+                        <button class="time-btn active" data-range="1M">1 M</button>
+                        <button class="time-btn" data-range="3M">3 M</button>
+                        <button class="time-btn" data-range="YTD">i år</button>
+                        <button class="time-btn" data-range="1Y">1 År</button>
+                        <button class="time-btn" data-range="3Y">3 År</button>
+                        <button class="time-btn" data-range="5Y">5 År</button>
+                        <button class="time-btn" data-range="10Y">10 År</button>
+                    </div>
+                </div>
             </div>
         </header>
 
         <section class="dashboard-panel glass-panel">
             <div class="chart-header">
-                <h2>Portföljens Värdeutveckling</h2>
+                <h2 id="chart-title">Portföljens Utveckling (1 M)</h2>
                 <div class="chart-controls">
                     <button id="toggle-all" class="btn active">Visa/Dölj Alla</button>
                 </div>
@@ -48,7 +66,7 @@
         </section>
 
         <section class="assets-panel glass-panel">
-            <h3>Portföljinnehav i "Prospects"</h3>
+            <h3>Portföljinnehav</h3>
             <ul class="assets-list" id="assets-list">
                 <!-- Javascript will populate this list -->
             </ul>
@@ -63,7 +81,18 @@
         document.addEventListener('DOMContentLoaded', () => {
             const ctx = document.getElementById('portfolioChart').getContext('2d');
             
-            // Beautiful curated HSL colors for up to 14 assets
+            // UI elements
+            const watchlistSelect = document.getElementById('watchlist-select');
+            const timeButtons = document.querySelectorAll('.time-btn');
+            const listContainer = document.getElementById('assets-list');
+            const chartTitle = document.getElementById('chart-title');
+            const toggleAllBtn = document.getElementById('toggle-all');
+
+            let currentList = 'Portfölj';
+            let currentRange = '1M';
+            let chartInstance = null;
+            let currentDatasets = [];
+
             const colors = [
                 'hsla(217, 91%, 60%, 1)', 'hsla(348, 83%, 57%, 1)', 'hsla(142, 71%, 45%, 1)',
                 'hsla(43, 96%, 56%, 1)', 'hsla(282, 84%, 55%, 1)', 'hsla(199, 89%, 48%, 1)',
@@ -72,146 +101,238 @@
                 'hsla(290, 70%, 50%, 1)', 'hsla(80, 80%, 45%, 1)'
             ];
 
-            // Setup chart datasets
-            const isins = Object.keys(fundsData);
-            let labels = [];
-            
-            // Assume all have same dates for simplicity
-            if(isins.length > 0) {
-                labels = fundsData[isins[0]].data.map(pt => pt.date);
-            }
-
-            const datasets = isins.map((isin, index) => {
-                const item = fundsData[isin];
-                return {
-                    label: item.name,
-                    data: item.data.map(pt => pt.normalized_nav),
-                    borderColor: colors[index % colors.length],
-                    backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 6,
-                    tension: 0.4, // Smooth Spline Curves
-                    fill: false
-                };
-            });
-
-            // Init Chart
             Chart.defaults.color = '#a0aec0';
             Chart.defaults.font.family = "'Inter', sans-serif";
 
-            const portfolioChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false,
+            function parseDate(dateStr) {
+                return new Date(dateStr);
+            }
+
+            function filterDataByRange(data, rangeStr) {
+                // Determine cutoff date based on the latest date in the dataset
+                // finding latest date from the first asset
+                const isins = Object.keys(data);
+                if (isins.length === 0) return { labels: [], datasets: [] };
+                
+                const firstAssetData = data[isins[0]].data;
+                if (firstAssetData.length === 0) return { labels: [], datasets: [] };
+
+                const latestDate = parseDate(firstAssetData[firstAssetData.length - 1].date);
+                let cutoffDate = new Date(latestDate); // clone
+
+                switch(rangeStr) {
+                    case '1M':
+                        cutoffDate.setMonth(cutoffDate.getMonth() - 1);
+                        break;
+                    case '3M':
+                        cutoffDate.setMonth(cutoffDate.getMonth() - 3);
+                        break;
+                    case 'YTD':
+                        cutoffDate = new Date(latestDate.getFullYear(), 0, 1); // Jan 1 of latest year
+                        break;
+                    case '1Y':
+                        cutoffDate.setFullYear(cutoffDate.getFullYear() - 1);
+                        break;
+                    case '3Y':
+                        cutoffDate.setFullYear(cutoffDate.getFullYear() - 3);
+                        break;
+                    case '5Y':
+                        cutoffDate.setFullYear(cutoffDate.getFullYear() - 5);
+                        break;
+                    case '10Y':
+                        cutoffDate.setFullYear(cutoffDate.getFullYear() - 10);
+                        break;
+                }
+
+                // Filter points & calculate Totalavkastning %
+                let labels = [];
+                let firstIteration = true;
+
+                const filteredDatasets = isins.map((isin, index) => {
+                    const item = data[isin];
+                    const pts = item.data.filter(pt => parseDate(pt.date) >= cutoffDate);
+                    
+                    if (firstIteration && pts.length > 0) {
+                        labels = pts.map(pt => pt.date);
+                        firstIteration = false;
+                    }
+
+                    // Calculate % return using the very first day in the cutoff period as 0% reference
+                    const baseNav = pts.length > 0 ? pts[0].nav : 1;
+                    const normalizedPts = pts.map(pt => ((pt.nav / baseNav) - 1) * 100);
+
+                    return {
+                        label: item.name,
+                        isin_code: isin,
+                        data: normalizedPts,
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        tension: 0.1, // slightly snappier for daily data
+                        fill: false
+                    };
+                });
+
+                return { labels, datasets: filteredDatasets };
+            }
+
+            function updateUI() {
+                const listData = fundsData[currentList];
+                const chartData = filterDataByRange(listData, currentRange);
+
+                // Update Chart
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+
+                currentDatasets = chartData.datasets;
+                chartTitle.textContent = `${currentList} Utveckling (${document.querySelector('.time-btn.active').textContent})`;
+
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: currentDatasets
                     },
-                    plugins: {
-                        legend: {
-                            display: false // We will build a custom HTML legend instead
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
                         },
-                        tooltip: {
-                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                            titleColor: '#fff',
-                            bodyColor: '#e2e8f0',
-                            borderColor: 'rgba(255,255,255,0.1)',
-                            borderWidth: 1,
-                            padding: 12,
-                            boxPadding: 4,
-                            usePointStyle: true,
-                            callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2);
+                        plugins: {
+                            legend: {
+                                display: false 
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                titleColor: '#fff',
+                                bodyColor: '#e2e8f0',
+                                borderColor: 'rgba(255,255,255,0.1)',
+                                borderWidth: 1,
+                                padding: 12,
+                                boxPadding: 4,
+                                usePointStyle: true,
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'category',
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    maxTicksLimit: 12,
+                                    maxRotation: 0,
+                                    autoSkip: true
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.05)',
+                                    drawBorder: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Totalavkastning (%)',
+                                    color: '#718096'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
                                 }
                             }
                         }
-                    },
-                    scales: {
-                        x: {
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.05)',
-                                drawBorder: false
-                            },
-                            ticks: {
-                                maxTicksLimit: 12
-                            }
-                        },
-                        y: {
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.05)',
-                                drawBorder: false
-                            },
-                            title: {
-                                display: true,
-                                text: 'Utveckling (Bas = 100)',
-                                color: '#718096'
-                            }
-                        }
-                    }
-                }
-            });
-
-            // Populate Assets List (Custom Legend)
-            const listContainer = document.getElementById('assets-list');
-            
-            datasets.forEach((ds, index) => {
-                const li = document.createElement('li');
-                li.className = 'asset-item';
-                
-                const dot = document.createElement('span');
-                dot.className = 'asset-dot';
-                dot.style.backgroundColor = ds.borderColor;
-                dot.style.boxShadow = `0 0 10px ${ds.borderColor}`;
-                
-                const span = document.createElement('span');
-                span.className = 'asset-name';
-                span.textContent = ds.label;
-
-                const isinText = document.createElement('span');
-                isinText.className = 'asset-isin';
-                isinText.textContent = isins[index];
-                
-                li.appendChild(dot);
-                li.appendChild(span);
-                li.appendChild(isinText);
-                
-                li.addEventListener('click', () => {
-                    const active = portfolioChart.isDatasetVisible(index);
-                    if (active) {
-                        portfolioChart.hide(index);
-                        li.classList.add('disabled');
-                    } else {
-                        portfolioChart.show(index);
-                        li.classList.remove('disabled');
                     }
                 });
 
-                listContainer.appendChild(li);
+                // Re-populate custom legend
+                listContainer.innerHTML = '';
+                currentDatasets.forEach((ds, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'asset-item';
+                    
+                    const dot = document.createElement('span');
+                    dot.className = 'asset-dot';
+                    dot.style.backgroundColor = ds.borderColor;
+                    dot.style.boxShadow = `0 0 10px ${ds.borderColor}`;
+                    
+                    const span = document.createElement('span');
+                    span.className = 'asset-name';
+                    span.textContent = ds.label;
+
+                    const isinText = document.createElement('span');
+                    isinText.className = 'asset-isin';
+                    isinText.textContent = ds.isin_code;
+                    
+                    li.appendChild(dot);
+                    li.appendChild(span);
+                    li.appendChild(isinText);
+                    
+                    li.addEventListener('click', () => {
+                        const active = chartInstance.isDatasetVisible(index);
+                        if (active) {
+                            chartInstance.hide(index);
+                            li.classList.add('disabled');
+                        } else {
+                            chartInstance.show(index);
+                            li.classList.remove('disabled');
+                        }
+                    });
+
+                    listContainer.appendChild(li);
+                });
+                
+                // reset toggle all
+                toggleAllBtn.classList.add('active');
+                toggleAllBtn.textContent = 'Dölj Alla';
+            }
+
+            // Event Listeners
+            watchlistSelect.addEventListener('change', (e) => {
+                currentList = e.target.value;
+                updateUI();
             });
 
-            // Toggle All Button
+            timeButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    timeButtons.forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    currentRange = e.target.getAttribute('data-range');
+                    updateUI();
+                });
+            });
+
             let allVisible = true;
-            document.getElementById('toggle-all').addEventListener('click', (e) => {
+            toggleAllBtn.addEventListener('click', (e) => {
                 const listItems = document.querySelectorAll('.asset-item');
                 if (allVisible) {
-                    datasets.forEach((_, i) => portfolioChart.hide(i));
+                    currentDatasets.forEach((_, i) => chartInstance.hide(i));
                     listItems.forEach(li => li.classList.add('disabled'));
                     e.target.classList.remove('active');
+                    e.target.textContent = 'Visa Alla';
                 } else {
-                    datasets.forEach((_, i) => portfolioChart.show(i));
+                    currentDatasets.forEach((_, i) => chartInstance.show(i));
                     listItems.forEach(li => li.classList.remove('disabled'));
                     e.target.classList.add('active');
+                    e.target.textContent = 'Dölj Alla';
                 }
                 allVisible = !allVisible;
-                portfolioChart.update();
+                chartInstance.update();
             });
+
+            // Init
+            updateUI();
         });
     </script>
 </body>

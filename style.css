@@ -72,18 +72,20 @@ body {
 .container {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 3rem 2rem;
+    padding: 2rem;
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: 1.5rem;
 }
 
 header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 1rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
     animation: fadeInDown 0.8s ease-out;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .header-content h1 {
@@ -93,26 +95,13 @@ header {
     background: linear-gradient(to right, #ffffff, #94a3b8);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.2rem;
 }
 
 .subtitle {
     color: var(--text-secondary);
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 300;
-}
-
-.disclaimer {
-    background: rgba(245, 158, 11, 0.1);
-    border: 1px solid rgba(245, 158, 11, 0.3);
-    color: #fcd34d;
-    padding: 0.75rem 1.25rem;
-    border-radius: 999px;
-    font-size: 0.875rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    backdrop-filter: blur(10px);
 }
 
 /* Glassmorphism Panels */
@@ -122,15 +111,81 @@ header {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-radius: 20px;
-    padding: 2rem;
+    padding: 1.5rem;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     animation: fadeInUp 0.8s ease-out both;
 }
 
-.glass-panel:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6);
+/* Top Controls */
+.controls-panel {
+    display: flex;
+    gap: 2rem;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.control-group label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.dropdown {
+    background: rgba(15, 23, 42, 0.8);
+    color: var(--text-primary);
+    border: 1px solid var(--card-border);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    outline: none;
+    cursor: pointer;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dropdown:focus {
+    border-color: var(--accent);
+}
+
+.time-range-group {
+    display: flex;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 0.25rem;
+    border: 1px solid var(--card-border);
+}
+
+.time-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.time-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.05);
+}
+
+.time-btn.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4);
 }
 
 /* Chart Area */
@@ -145,7 +200,7 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 .chart-header h2 {
@@ -165,25 +220,25 @@ header {
 }
 
 .assets-panel h3 {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     font-size: 1.25rem;
     font-weight: 600;
     border-bottom: 1px solid var(--card-border);
-    padding-bottom: 1rem;
+    padding-bottom: 0.75rem;
 }
 
 .assets-list {
     list-style: none;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.8rem;
 }
 
 .asset-item {
     display: flex;
     align-items: center;
     background: rgba(255, 255, 255, 0.03);
-    padding: 1rem;
+    padding: 0.8rem 1rem;
     border-radius: 12px;
     border: 1px solid transparent;
     cursor: pointer;
@@ -201,8 +256,8 @@ header {
 }
 
 .asset-dot {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     margin-right: 1rem;
     flex-shrink: 0;
@@ -211,14 +266,14 @@ header {
 .asset-name {
     flex-grow: 1;
     font-weight: 500;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
 }
 
 .asset-isin {
     color: var(--text-secondary);
-    font-size: 0.75rem;
+    font-size: 0.70rem;
     background: rgba(255,255,255,0.05);
-    padding: 0.2rem 0.5rem;
+    padding: 0.15rem 0.4rem;
     border-radius: 4px;
     font-family: monospace;
 }
@@ -233,7 +288,7 @@ header {
     cursor: pointer;
     font-family: inherit;
     font-weight: 500;
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     transition: all 0.2s;
 }
 
@@ -275,7 +330,14 @@ header {
     header {
         flex-direction: column;
         align-items: flex-start;
+    }
+    .controls-panel {
+        flex-direction: column;
+        width: 100%;
         gap: 1.5rem;
+    }
+    .time-range-group {
+        flex-wrap: wrap;
     }
     .assets-list {
         grid-template-columns: 1fr;
